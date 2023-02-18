@@ -8,17 +8,17 @@ import asyncio
 import os
 from dotenv import load_dotenv
 
-# global variables
-MODES = ['default', 'square']
-is_running = False
-
-
 load_dotenv()
 
 intents = discord.Intents(message_content=True, messages=True, guilds=True)
 bot = commands.Bot(intents=intents, command_prefix='%')
 
 token = os.getenv("TOKEN")
+
+# global variables
+MODES = ['default', 'square']
+is_running = False
+bot.current_channels = set()
 
 
 @bot.event
@@ -34,18 +34,11 @@ async def flavour(ctx):
 
 
 @bot.command(name='p')
-async def play_zeta(ctx, *args):
-    global is_running
-    if not is_running:
-        is_running = True
-        mode = 'default'
-        points = 5
-
-        for arg in args:
-            if arg.isdigit():
-                points = int(arg)
-            else:
-                mode = arg
+async def play_zeta(ctx, *, flags: gen.GameFlags):
+    if ctx.channel not in bot.current_channels:
+        bot.current_channels.add(ctx.channel)
+        mode = flags.mode
+        points = flags.points
 
         if mode not in MODES:
             mode = 'default'
@@ -56,6 +49,7 @@ async def play_zeta(ctx, *args):
         score = 0
         answer = 0
         reply_message = 0
+        end_message = 'You win!'
 
         while score < points:
 
@@ -77,11 +71,11 @@ async def play_zeta(ctx, *args):
                         remaining_time = 15.0
                     if reply_message.content == "--q":
                         await ctx.channel.send(f"You quit. Points: {score}.")
-                        is_running = False
+                        bot.current_channels.remove(ctx.channel)
                         return
                 except asyncio.TimeoutError:
                     await ctx.channel.send(f"You ran out of time. Points: {score}.")
-                    is_running = False
+                    bot.current_channels.remove(ctx.channel)
                     return
 
             reply_message = 0
@@ -94,24 +88,18 @@ async def play_zeta(ctx, *args):
                     point_string = 'point'
                 await ctx.channel.send(f"Correct! {score} {point_string}. \n {first} {operator} {second}?")
             elif score == points:
-                await ctx.channel.send("You win!")
-                is_running = False
+                await ctx.channel.send(end_message)
+                bot.current_channels.remove(ctx.channel)
                 return
 
 
 @bot.command(name='m')
-async def play_multi_zeta(ctx, *args):
-    global is_running
-    if not is_running:
-        is_running = True
-        mode = 'default'
-        points = 5
+async def play_multi_zeta(ctx, *, flags: gen.GameFlags):
+    if ctx.channel not in bot.current_channels:
+        bot.current_channels.add(ctx.channel)
 
-        for arg in args:
-            if arg.isdigit():
-                points = int(arg)
-            else:
-                mode = arg
+        mode = flags.mode
+        points = flags.points
 
         if mode not in MODES:
             mode = 'default'
@@ -123,7 +111,9 @@ async def play_multi_zeta(ctx, *args):
         answer = 0
         reply_message = 0
 
-        while points not in scores.values():
+        condition = points not in scores.values()
+
+        while condition:
 
             if not scores:
                 first, second, operator, answer = gen.mode_switch(mode)
@@ -145,7 +135,7 @@ async def play_multi_zeta(ctx, *args):
                             await ctx.channel.send(f"You quit. {winner} wins with {scores[winner]} {point_string}.")
                         else:
                             await ctx.channel.send(f"You quit.")
-                        is_running = False
+                        bot.current_channels.remove(ctx.channel)
                         return
                     if reply_message.content != str(answer):
                         remaining_time -= elapsed_time
@@ -159,11 +149,11 @@ async def play_multi_zeta(ctx, *args):
                             point_string = 'point'
                         await ctx.channel.send(f"You ran out of time. {winner} wins with {scores[winner]} "
                                                f"{point_string}.")
-                        is_running = False
+                        bot.current_channels.remove(ctx.channel)
                         return
                     else:
                         await ctx.channel.send(f"You ran out of time.")
-                        is_running = False
+                        bot.current_channels.remove(ctx.channel)
                         return
 
             name = reply_message.author.name
@@ -173,7 +163,7 @@ async def play_multi_zeta(ctx, *args):
                 scores[name] += 1
                 if scores[name] == points:
                     await ctx.channel.send(f"{name} wins!")
-                    is_running = False
+                    bot.current_channels.remove(ctx.channel)
                     return
                 first, second, operator, answer = gen.mode_switch(mode)
                 await ctx.channel.send(f"{name} is correct. {scores[name]} points."
@@ -182,7 +172,7 @@ async def play_multi_zeta(ctx, *args):
                 scores[name] = 1
                 if 1 == points:
                     await ctx.channel.send(f"{name} wins!")
-                    is_running = False
+                    bot.current_channels.remove(ctx.channel)
                     return
                 first, second, operator, answer = gen.mode_switch(mode)
                 await ctx.channel.send(f"{name} is correct. 1 point."
@@ -190,20 +180,14 @@ async def play_multi_zeta(ctx, *args):
 
 
 @bot.command(name='z')  # might be able to make this a mode
-async def play_timed_zeta(ctx, *args):
-    global is_running
-    if not is_running:
-        is_running = True
+async def play_timed_zeta(ctx, *, flags: gen.GameFlags):
+    if ctx.channel not in bot.current_channels:
+        bot.current_channels.add(ctx.channel)
 
-        mode = 'default'
         elapsed_time = 0
-        max_time = 120
 
-        for arg in args:
-            if arg.isdigit():
-                max_time = int(arg)
-            else:
-                mode = arg
+        mode = flags.mode
+        max_time = flags.time
 
         if mode not in MODES:
             mode = 'default'
@@ -221,7 +205,7 @@ async def play_timed_zeta(ctx, *args):
             while reply_message == 0 or reply_message.content != str(answer):
                 if elapsed_time >= max_time:
                     await ctx.channel.send(f"You ran out of time. Points: {score}.")
-                    is_running = False
+                    bot.current_channels.remove(ctx.channel)
                     return
                 try:
                     start_time = time.time()
@@ -230,11 +214,11 @@ async def play_timed_zeta(ctx, *args):
                     elapsed_time += time.time() - start_time
                     if reply_message.content == "--q":
                         await ctx.channel.send(f"You quit. Points: {score}.")
-                        is_running = False
+                        bot.current_channels.remove(ctx.channel)
                         return
                 except asyncio.TimeoutError:
                     await ctx.channel.send(f"You ran out of time. Points: {score}.")
-                    is_running = False
+                    bot.current_channels.remove(ctx.channel)
                     return
 
             reply_message = 0
@@ -248,35 +232,42 @@ async def play_timed_zeta(ctx, *args):
                 await ctx.channel.send(f"Correct! {score} points. \n{first} {operator} {second}?")
 
         await ctx.channel.send(f"You ran out of time. Points: {score}.")
-        is_running = False
+        bot.current_channels.remove(ctx.channel)
 
 
 @bot.tree.command()
 async def add(interaction: discord.Interaction, min_one: int = 2, max_one: int = 100, min_two: int = 2,
               max_two: int = 100):
-    if min_one > max_one:
-        min_one, max_one = gen.swap(min_one, max_one)
-    if min_two > max_two:
-        min_two, max_two = gen.swap(min_two, max_two)
-    defaults.set_add_one((min_one, max_one))
-    defaults.set_add_two((min_two, max_two))
-    await interaction.response.send_message(f'+Range: ({defaults.get_add_one()[0]} to {defaults.get_add_one()[1]}) + '
-                                            f'({defaults.get_add_two()[0]} to {defaults.get_add_two()[1]})',
-                                            ephemeral=True)
+    if interaction.channel not in bot.current_channels:
+        bot.current_channels.add(interaction.channel)
+        if min_one > max_one:
+            min_one, max_one = gen.swap(min_one, max_one)
+        if min_two > max_two:
+            min_two, max_two = gen.swap(min_two, max_two)
+        defaults.set_add_one((min_one, max_one))
+        defaults.set_add_two((min_two, max_two))
+        await interaction.response.send_message(f'+Range: ({defaults.get_add_one()[0]} to {defaults.get_add_one()[1]}) '
+                                                f'+ ({defaults.get_add_two()[0]} to {defaults.get_add_two()[1]})',
+                                                ephemeral=True)
+        bot.current_channels.remove(interaction.channel)
 
 
 @bot.tree.command()
 async def multiply(interaction: discord.Interaction, min_one: int = 2, max_one: int = 12, min_two: int = 2,
                    max_two: int = 100):
-    if min_one > max_one:
-        min_one, max_one = gen.swap(min_one, max_one)
-    if min_two > max_two:
-        min_two, max_two = gen.swap(min_two, max_two)
-    defaults.set_multiply_one((min_one, max_one))
-    defaults.set_multiply_two((min_two, max_two))
-    await interaction.response.send_message(f'\*Range: ({defaults.get_multiply_one()[0]} to '
-                                            f'{defaults.get_multiply_one()[1]}) * ({defaults.get_multiply_two()[0]} to '
-                                            f'{defaults.get_multiply_two()[1]})', ephemeral=True)
+    if interaction.channel not in bot.current_channels:
+        bot.current_channels.add(interaction.channel)
+        if min_one > max_one:
+            min_one, max_one = gen.swap(min_one, max_one)
+        if min_two > max_two:
+            min_two, max_two = gen.swap(min_two, max_two)
+        defaults.set_multiply_one((min_one, max_one))
+        defaults.set_multiply_two((min_two, max_two))
+        await interaction.response.send_message(f'\*Range: ({defaults.get_multiply_one()[0]} to '
+                                                f'{defaults.get_multiply_one()[1]}) * '
+                                                f'({defaults.get_multiply_two()[0]} to '
+                                                f'{defaults.get_multiply_two()[1]})', ephemeral=True)
+        bot.current_channels.remove(interaction.channel)
 
 if __name__ == '__main__':
     bot.run(token)

@@ -1,6 +1,9 @@
 
 import discord
+from discord.ext import commands
 import random
+import asyncio
+import time
 
 
 class Defaults:
@@ -106,6 +109,10 @@ def mode_switch(mode: str):
             square = random.randint(2, 100)
             first, second, operator, answer = (int(square), int(square), '*', int(square) ** 2)
             return first, second, operator, answer
+        case 'zeta':
+            first, second, operator = generate()
+            first, second, answer = generate_q(first, second, operator)
+            return first, second, operator, answer
 
 
 class OperatorSelect(discord.ui.Select):
@@ -155,3 +162,10 @@ class OperatorView(discord.ui.View):
         super().__init__()
 
         self.add_item(OperatorSelect())
+
+
+class GameFlags(commands.FlagConverter, delimiter=' ', prefix='-'):
+    mode: str = 'default'
+    points: int = 5
+    time: int = 120
+
