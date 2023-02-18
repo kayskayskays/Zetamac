@@ -168,4 +168,5 @@ class GameFlags(commands.FlagConverter, delimiter=' ', prefix='-'):
     mode: str = 'default'
     points: int = 5
     time: int = 120
+    timeout: int = 15
 

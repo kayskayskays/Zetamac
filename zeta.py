@@ -57,18 +57,18 @@ async def play_zeta(ctx, *, flags: gen.GameFlags):
                 first, second, operator, answer = gen.mode_switch(mode)
                 await ctx.channel.send(f"{first} {operator} {second}?")
 
-            remaining_time = 15.0
+            timeout = flags.timeout
 
             while reply_message == 0 or reply_message.content != str(answer):
                 try:
                     start_time = time.time()
                     reply_message = await bot.wait_for(
-                        'message', timeout=remaining_time, check=lambda message: ctx.author == message.author)
+                        'message', timeout=timeout, check=lambda message: ctx.author == message.author)
                     elapsed_time = time.time() - start_time
                     if reply_message.content != str(answer):
-                        remaining_time -= elapsed_time
+                        timeout -= elapsed_time
                     else:
-                        remaining_time = 15.0
+                        timeout = flags.timeout
                     if reply_message.content == "--q":
                         await ctx.channel.send(f"You quit. Points: {score}.")
                         bot.current_channels.remove(ctx.channel)
@@ -119,12 +119,12 @@ async def play_multi_zeta(ctx, *, flags: gen.GameFlags):
                 first, second, operator, answer = gen.mode_switch(mode)
                 await ctx.channel.send(f"{first} {operator} {second}?")
 
-            remaining_time = 15.0
+            timeout = flags.timeout
 
             while reply_message == 0 or reply_message.content != str(answer):
                 try:
                     start_time = time.time()
-                    reply_message = await bot.wait_for('message', timeout=remaining_time)
+                    reply_message = await bot.wait_for('message', timeout=timeout)
                     elapsed_time = time.time() - start_time
                     if reply_message.content == "--q":
                         if scores:
@@ -138,9 +138,9 @@ async def play_multi_zeta(ctx, *, flags: gen.GameFlags):
                         bot.current_channels.remove(ctx.channel)
                         return
                     if reply_message.content != str(answer):
-                        remaining_time -= elapsed_time
+                        timeout -= elapsed_time
                     else:
-                        remaining_time = 15.0
+                        timeout = flags.timeout
                 except asyncio.TimeoutError:
                     if scores:
                         winner = list(dict(sorted(scores.items(), key=lambda item: item[1])))[-1]
@@ -233,6 +233,82 @@ async def play_timed_zeta(ctx, *, flags: gen.GameFlags):
 
         await ctx.channel.send(f"You ran out of time. Points: {score}.")
         bot.current_channels.remove(ctx.channel)
+
+
+@bot.command(name='zm')
+async def multiplayer_timed_zeta(ctx, *, flags: gen.GameFlags):
+    if ctx.channel not in bot.current_channels:
+        bot.current_channels.add(ctx.channel)
+
+        elapsed_time = 0
+
+        mode = flags.mode
+        max_time = flags.time
+
+        if mode not in MODES:
+            mode = 'default'
+
+        scores = {}
+        answer = 0
+        reply_message = 0
+
+        while elapsed_time < max_time:
+
+            if not scores:
+                first, second, operator, answer = gen.mode_switch(mode)
+                await ctx.channel.send(f"{first} {operator} {second}?")
+
+            while reply_message == 0 or reply_message.content != str(answer):
+                if elapsed_time >= max_time:
+                    if scores:
+                        winner = list(dict(sorted(scores.items(), key=lambda item: item[1])))[-1]
+                        await ctx.channel.send(f'You ran out of time. {winner} wins with {scores[winner]} points.')
+                    else:
+                        await ctx.channel.send(f'You ran out of time.')
+                    bot.current_channels.remove(ctx.channel)
+                    return
+                try:
+                    start_time = time.time()
+                    reply_message = await bot.wait_for(
+                        'message', timeout=max_time - elapsed_time)
+                    elapsed_time += time.time() - start_time
+                    if reply_message.content == "--q":
+                        if scores:
+                            winner = list(dict(sorted(scores.items(), key=lambda item: item[1])))[-1]
+                            await ctx.channel.send(f'You quit. {winner} wins with {scores[winner]} points.')
+                        else:
+                            await ctx.channel.send(f'You quit.')
+                        bot.current_channels.remove(ctx.channel)
+                        return
+                except asyncio.TimeoutError:
+                    if scores:
+                        winner = list(dict(sorted(scores.items(), key=lambda item: item[1])))[-1]
+                        await ctx.channel.send(f'You ran out of time. {winner} wins with {scores[winner]} points.')
+                    else:
+                        await ctx.channel.send(f'You ran out of time.')
+                    bot.current_channels.remove(ctx.channel)
+                    return
+
+            name = reply_message.author.name
+            if name in scores:
+                scores[name] += 1
+            else:
+                scores[name] = 1
+
+            if scores[name] == 1:
+                first, second, operator, answer = gen.mode_switch(mode)
+                await ctx.channel.send(f"{name} is correct. 1 point. \n {first} {operator} {second}?")
+            else:
+                first, second, operator, answer = gen.mode_switch(mode)
+                await ctx.channel.send(f"{name} is correct. {scores[name]} points. \n{first} {operator} {second}?")
+
+        if scores:
+            winner = list(dict(sorted(scores.items(), key=lambda item: item[1])))[-1]
+            await ctx.channel.send(f'You ran out of time. {winner} wins with {scores[winner]} points.')
+        else:
+            await ctx.channel.send(f'You ran out of time.')
+        bot.current_channels.remove(ctx.channel)
+        return
 
 
 @bot.tree.command()
