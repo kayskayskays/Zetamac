@@ -1,124 +1,16 @@
 
 import discord
 from discord.ext import commands
+import gen
+from gen import defaults
+import time
+import asyncio
 import os
 from dotenv import load_dotenv
-import random
-import asyncio
-import time
 
 # global variables
-
-operator_list = ['+', '*', '-', '/']
-modes = ['default', 'square']
+MODES = ['default', 'square']
 is_running = False
-
-
-def generate() -> tuple[int, int, str]:
-    first = 0
-    second = 0
-
-    global operator_list
-    operator = random.choice(operator_list)
-
-    if operator == '+' or operator == '-':
-        first = random.randint(2, 100)
-        second = random.randint(2, 100)
-    elif operator == '*' or operator == '/':
-        first = random.randint(2, 12)
-        second = random.randint(2, 100)
-
-    return int(first), int(second), operator
-
-
-def generate_q(first: int, second: int, operator: str) -> tuple[int, int, int]:
-    match operator:
-        case '+':
-            answer = first + second
-            return first, second, answer
-        case '-':
-            answer = first + second
-            second = random.choice([first, second])
-            first = answer
-            answer = first - second
-            return first, second, answer
-        case '*':
-            answer = first * second
-            return first, second, answer
-        case '/':
-            answer = first * second
-            if second > 12:
-                second = first
-            elif first > 12:
-                pass
-            else:
-                second = random.choice([first, second])
-            first = answer
-            answer = first // second
-            return first, second, answer
-
-
-def mode_switch(mode: str):
-    match mode:
-        case 'default':
-            first, second, operator = generate()
-            first, second, answer = generate_q(first, second, operator)
-            return first, second, operator, answer
-        case 'square':
-            square = random.randint(2, 100)
-            first, second, operator, answer = (int(square), int(square), '*', int(square)**2)
-            return first, second, operator, answer
-
-
-class OperatorSelect(discord.ui.Select):
-
-    def __init__(self):
-
-        default_plus = '+' in operator_list
-        default_minus = '-' in operator_list
-        default_x = '*' in operator_list
-        default_div = '/' in operator_list
-
-        options = [
-            discord.SelectOption(
-                label="+",
-                description="Addition",
-                default=default_plus
-            ),
-            discord.SelectOption(
-                label="-",
-                description="Subtraction",
-                default=default_minus
-            ),
-            discord.SelectOption(
-                label="*",
-                description="Multiplication",
-                default=default_x
-            ),
-            discord.SelectOption(
-                label='/',
-                description="Division",
-                default=default_div
-            )
-        ]
-        super().__init__(placeholder='+-*/', min_values=1, max_values=4, options=options)
-
-    async def callback(self, interaction):
-        global operator_list
-        operator_list = self.values
-        operator_string = " "
-        for operator in self.values:
-            operator_string += operator + ' '
-        operator_string = operator_string[:-1]
-        await interaction.response.send_message(f"You chose {operator_string}.", ephemeral=True)
-
-
-class OperatorView(discord.ui.View):
-
-    def __init__(self):
-        super().__init__()
-
-        self.add_item(OperatorSelect())
 
 
 load_dotenv()
@@ -131,12 +23,13 @@ token = os.getenv("TOKEN")
 
 @bot.event
 async def on_ready():
+    await bot.tree.sync()
     print(f"Logged in as {bot.user}")
 
 
 @bot.command(aliases=['flavor', 'fl'])
 async def flavour(ctx):
-    view = OperatorView()
+    view = gen.OperatorView()
     await ctx.send("Choose your operators:", view=view)
 
 
@@ -154,7 +47,7 @@ async def play_zeta(ctx, *args):
             else:
                 mode = arg
 
-        if mode not in modes:
+        if mode not in MODES:
             mode = 'default'
 
         if points > 100:
@@ -167,7 +60,7 @@ async def play_zeta(ctx, *args):
         while score < points:
 
             if score == 0:
-                first, second, operator, answer = mode_switch(mode)
+                first, second, operator, answer = gen.mode_switch(mode)
                 await ctx.channel.send(f"{first} {operator} {second}?")
 
             remaining_time = 15.0
@@ -195,7 +88,7 @@ async def play_zeta(ctx, *args):
             score += 1
 
             if score >= 1 and score != points:
-                first, second, operator, answer = mode_switch(mode)
+                first, second, operator, answer = gen.mode_switch(mode)
                 point_string = 'points'
                 if score == 1:
                     point_string = 'point'
@@ -213,31 +106,31 @@ async def play_multi_zeta(ctx, *args):
         is_running = True
         mode = 'default'
         points = 5
-    
+
         for arg in args:
             if arg.isdigit():
                 points = int(arg)
             else:
                 mode = arg
-    
-        if mode not in modes:
+
+        if mode not in MODES:
             mode = 'default'
-    
+
         if points > 100:
             points = 100
-    
+
         scores = {}
         answer = 0
         reply_message = 0
-    
+
         while points not in scores.values():
-    
+
             if not scores:
-                first, second, operator, answer = mode_switch(mode)
+                first, second, operator, answer = gen.mode_switch(mode)
                 await ctx.channel.send(f"{first} {operator} {second}?")
-    
+
             remaining_time = 15.0
-    
+
             while reply_message == 0 or reply_message.content != str(answer):
                 try:
                     start_time = time.time()
@@ -264,24 +157,25 @@ async def play_multi_zeta(ctx, *args):
                         point_string = 'points'
                         if scores[winner] == 1:
                             point_string = 'point'
-                        await ctx.channel.send(f"You ran out of time. {winner} wins with {scores[winner]} {point_string}.")
+                        await ctx.channel.send(f"You ran out of time. {winner} wins with {scores[winner]} "
+                                               f"{point_string}.")
                         is_running = False
                         return
                     else:
                         await ctx.channel.send(f"You ran out of time.")
                         is_running = False
                         return
-    
+
             name = reply_message.author.name
             reply_message = 0
-    
+
             if name in scores:
                 scores[name] += 1
                 if scores[name] == points:
                     await ctx.channel.send(f"{name} wins!")
                     is_running = False
                     return
-                first, second, operator, answer = mode_switch(mode)
+                first, second, operator, answer = gen.mode_switch(mode)
                 await ctx.channel.send(f"{name} is correct. {scores[name]} points."
                                        f" \n{first} {operator} {second}?")
             else:
@@ -290,7 +184,7 @@ async def play_multi_zeta(ctx, *args):
                     await ctx.channel.send(f"{name} wins!")
                     is_running = False
                     return
-                first, second, operator, answer = mode_switch(mode)
+                first, second, operator, answer = gen.mode_switch(mode)
                 await ctx.channel.send(f"{name} is correct. 1 point."
                                        f"\n {first} {operator} {second}?")
 
@@ -300,30 +194,30 @@ async def play_timed_zeta(ctx, *args):
     global is_running
     if not is_running:
         is_running = True
-        
+
         mode = 'default'
         elapsed_time = 0
         max_time = 120
-    
+
         for arg in args:
             if arg.isdigit():
                 max_time = int(arg)
             else:
                 mode = arg
-    
-        if mode not in modes:
+
+        if mode not in MODES:
             mode = 'default'
-    
+
         score = 0
         answer = 0
         reply_message = 0
-    
+
         while elapsed_time < max_time:
-    
+
             if score == 0:
-                first, second, operator, answer = mode_switch(mode)
+                first, second, operator, answer = gen.mode_switch(mode)
                 await ctx.channel.send(f"{first} {operator} {second}?")
-    
+
             while reply_message == 0 or reply_message.content != str(answer):
                 if elapsed_time >= max_time:
                     await ctx.channel.send(f"You ran out of time. Points: {score}.")
@@ -345,17 +239,44 @@ async def play_timed_zeta(ctx, *args):
 
             reply_message = 0
             score += 1
-    
+
             if score == 1:
-                first, second, operator, answer = mode_switch(mode)
+                first, second, operator, answer = gen.mode_switch(mode)
                 await ctx.channel.send(f"Correct! 1 point. \n {first} {operator} {second}?")
             else:
-                first, second, operator, answer = mode_switch(mode)
+                first, second, operator, answer = gen.mode_switch(mode)
                 await ctx.channel.send(f"Correct! {score} points. \n{first} {operator} {second}?")
-    
+
         await ctx.channel.send(f"You ran out of time. Points: {score}.")
         is_running = False
-    
+
+
+@bot.tree.command()
+async def add(interaction: discord.Interaction, min_one: int = 2, max_one: int = 100, min_two: int = 2,
+              max_two: int = 100):
+    if min_one > max_one:
+        min_one, max_one = gen.swap(min_one, max_one)
+    if min_two > max_two:
+        min_two, max_two = gen.swap(min_two, max_two)
+    defaults.set_add_one((min_one, max_one))
+    defaults.set_add_two((min_two, max_two))
+    await interaction.response.send_message(f'+Range: ({defaults.get_add_one()[0]} to {defaults.get_add_one()[1]}) + '
+                                            f'({defaults.get_add_two()[0]} to {defaults.get_add_two()[1]})',
+                                            ephemeral=True)
+
+
+@bot.tree.command()
+async def multiply(interaction: discord.Interaction, min_one: int = 2, max_one: int = 12, min_two: int = 2,
+                   max_two: int = 100):
+    if min_one > max_one:
+        min_one, max_one = gen.swap(min_one, max_one)
+    if min_two > max_two:
+        min_two, max_two = gen.swap(min_two, max_two)
+    defaults.set_multiply_one((min_one, max_one))
+    defaults.set_multiply_two((min_two, max_two))
+    await interaction.response.send_message(f'\*Range: ({defaults.get_multiply_one()[0]} to '
+                                            f'{defaults.get_multiply_one()[1]}) * ({defaults.get_multiply_two()[0]} to '
+                                            f'{defaults.get_multiply_two()[1]})', ephemeral=True)
 
 if __name__ == '__main__':
     bot.run(token)
