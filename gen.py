@@ -153,7 +153,7 @@ class OperatorSelect(discord.ui.Select):
         for operator in self.values:
             operator_string += operator + ' '
         operator_string = operator_string[:-1]
-        await interaction.response.send_message(f"You chose {operator_string}.", ephemeral=True)
+        await interaction.response.send_message(f"You chose {operator_string}.", ephemeral=False)
 
 
 class OperatorView(discord.ui.View):

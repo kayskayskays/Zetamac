@@ -324,7 +324,7 @@ async def add(interaction: discord.Interaction, min_one: int = 2, max_one: int =
         defaults.set_add_two((min_two, max_two))
         await interaction.response.send_message(f'+Range: ({defaults.get_add_one()[0]} to {defaults.get_add_one()[1]}) '
                                                 f'+ ({defaults.get_add_two()[0]} to {defaults.get_add_two()[1]})',
-                                                ephemeral=True)
+                                                ephemeral=False)
         bot.current_channels.remove(interaction.channel)
 
 
@@ -342,7 +342,7 @@ async def multiply(interaction: discord.Interaction, min_one: int = 2, max_one: 
         await interaction.response.send_message(f'\*Range: ({defaults.get_multiply_one()[0]} to '
                                                 f'{defaults.get_multiply_one()[1]}) * '
                                                 f'({defaults.get_multiply_two()[0]} to '
-                                                f'{defaults.get_multiply_two()[1]})', ephemeral=True)
+                                                f'{defaults.get_multiply_two()[1]})', ephemeral=False)
         bot.current_channels.remove(interaction.channel)
 
 if __name__ == '__main__':
