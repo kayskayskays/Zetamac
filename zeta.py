@@ -7,12 +7,18 @@ import random
 import asyncio
 import time
 
+# global variables
+
+operator_list = ['+', '*', '-', '/']
+modes = ['default', 'square']
+is_running = False
+
 
 def generate() -> tuple[int, int, str]:
     first = 0
     second = 0
 
-    operator_list = ['+', '*', '-', '/']
+    global operator_list
     operator = random.choice(operator_list)
 
     if operator == '+' or operator == '-':
@@ -20,7 +26,7 @@ def generate() -> tuple[int, int, str]:
         second = random.randint(2, 100)
     elif operator == '*' or operator == '/':
         first = random.randint(2, 12)
-        second = random.randint(2, 12)
+        second = random.randint(2, 100)
 
     return int(first), int(second), operator
 
@@ -64,6 +70,57 @@ def mode_switch(mode: str):
             return first, second, operator, answer
 
 
+class OperatorSelect(discord.ui.Select):
+
+    def __init__(self):
+
+        default_plus = '+' in operator_list
+        default_minus = '-' in operator_list
+        default_x = '*' in operator_list
+        default_div = '/' in operator_list
+
+        options = [
+            discord.SelectOption(
+                label="+",
+                description="Addition",
+                default=default_plus
+            ),
+            discord.SelectOption(
+                label="-",
+                description="Subtraction",
+                default=default_minus
+            ),
+            discord.SelectOption(
+                label="*",
+                description="Multiplication",
+                default=default_x
+            ),
+            discord.SelectOption(
+                label='/',
+                description="Division",
+                default=default_div
+            )
+        ]
+        super().__init__(placeholder='+-*/', min_values=1, max_values=4, options=options)
+
+    async def callback(self, interaction):
+        global operator_list
+        operator_list = self.values
+        operator_string = " "
+        for operator in self.values:
+            operator_string += operator + ' '
+        operator_string = operator_string[:-1]
+        await interaction.response.send_message(f"You chose {operator_string}.", ephemeral=True)
+
+
+class OperatorView(discord.ui.View):
+
+    def __init__(self):
+        super().__init__()
+
+        self.add_item(OperatorSelect())
+
+
 load_dotenv()
 
 intents = discord.Intents(message_content=True, messages=True, guilds=True)
@@ -77,8 +134,10 @@ async def on_ready():
     print(f"Logged in as {bot.user}")
 
 
-modes = ['default', 'square']
-is_running = False
+@bot.command(aliases=['flavor', 'fl'])
+async def flavour(ctx):
+    view = OperatorView()
+    await ctx.send("Choose your operators:", view=view)
 
 
 @bot.command(name='p')
@@ -132,6 +191,7 @@ async def play_zeta(ctx, *args):
                     is_running = False
                     return
 
+            reply_message = 0
             score += 1
 
             if score >= 1 and score != points:
@@ -213,6 +273,7 @@ async def play_multi_zeta(ctx, *args):
                         return
     
             name = reply_message.author.name
+            reply_message = 0
     
             if name in scores:
                 scores[name] += 1
@@ -234,7 +295,7 @@ async def play_multi_zeta(ctx, *args):
                                        f"\n {first} {operator} {second}?")
 
 
-@bot.command(name='z')
+@bot.command(name='z')  # might be able to make this a mode
 async def play_timed_zeta(ctx, *args):
     global is_running
     if not is_running:
@@ -281,7 +342,8 @@ async def play_timed_zeta(ctx, *args):
                     await ctx.channel.send(f"You ran out of time. Points: {score}.")
                     is_running = False
                     return
-    
+
+            reply_message = 0
             score += 1
     
             if score == 1:
