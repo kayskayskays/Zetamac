@@ -212,12 +212,12 @@ async def play_timed_zeta(ctx, *, flags: gen.GameFlags):
                     reply_message = await bot.wait_for(
                         'message', timeout=max_time - elapsed_time, check=lambda message: ctx.author == message.author)
                     elapsed_time += time.time() - start_time
-                    if reply_message.content == "--q":
-                        await ctx.channel.send(f"You quit. Points: {score}.")
+                    if reply_message.content == '--q':
+                        await ctx.channel.send(f'You quit. Points: {score}.')
                         bot.current_channels.remove(ctx.channel)
                         return
                 except asyncio.TimeoutError:
-                    await ctx.channel.send(f"You ran out of time. Points: {score}.")
+                    await ctx.channel.send(f'You ran out of time. Points: {score}.')
                     bot.current_channels.remove(ctx.channel)
                     return
 
@@ -226,12 +226,12 @@ async def play_timed_zeta(ctx, *, flags: gen.GameFlags):
 
             if score == 1:
                 first, second, operator, answer = gen.mode_switch(mode)
-                await ctx.channel.send(f"Correct! 1 point. \n {first} {operator} {second}?")
+                await ctx.channel.send(f'Correct! 1 point. \n {first} {operator} {second}?')
             else:
                 first, second, operator, answer = gen.mode_switch(mode)
-                await ctx.channel.send(f"Correct! {score} points. \n{first} {operator} {second}?")
+                await ctx.channel.send(f'Correct! {score} points. \n{first} {operator} {second}?')
 
-        await ctx.channel.send(f"You ran out of time. Points: {score}.")
+        await ctx.channel.send(f'You ran out of time. Points: {score}.')
         bot.current_channels.remove(ctx.channel)
 
 
@@ -297,10 +297,10 @@ async def multiplayer_timed_zeta(ctx, *, flags: gen.GameFlags):
 
             if scores[name] == 1:
                 first, second, operator, answer = gen.mode_switch(mode)
-                await ctx.channel.send(f"{name} is correct. 1 point. \n {first} {operator} {second}?")
+                await ctx.channel.send(f'{name} is correct. 1 point. \n {first} {operator} {second}?')
             else:
                 first, second, operator, answer = gen.mode_switch(mode)
-                await ctx.channel.send(f"{name} is correct. {scores[name]} points. \n{first} {operator} {second}?")
+                await ctx.channel.send(f'{name} is correct. {scores[name]} points. \n{first} {operator} {second}?')
 
         if scores:
             winner = list(dict(sorted(scores.items(), key=lambda item: item[1])))[-1]
@@ -320,10 +320,9 @@ async def add(interaction: discord.Interaction, min_one: int = 2, max_one: int =
             min_one, max_one = gen.swap(min_one, max_one)
         if min_two > max_two:
             min_two, max_two = gen.swap(min_two, max_two)
-        defaults.set_add_one((min_one, max_one))
-        defaults.set_add_two((min_two, max_two))
-        await interaction.response.send_message(f'+Range: ({defaults.get_add_one()[0]} to {defaults.get_add_one()[1]}) '
-                                                f'+ ({defaults.get_add_two()[0]} to {defaults.get_add_two()[1]})',
+        defaults.set_add(([min_one, max_one], [min_two, max_two]))
+        await interaction.response.send_message(f'+Range: ({defaults.add[0][0]} to {defaults.add[0][1]}) '
+                                                f'+ ({defaults.add[1][0]} to {defaults.add[1][1]})',
                                                 ephemeral=False)
         bot.current_channels.remove(interaction.channel)
 
@@ -337,12 +336,11 @@ async def multiply(interaction: discord.Interaction, min_one: int = 2, max_one: 
             min_one, max_one = gen.swap(min_one, max_one)
         if min_two > max_two:
             min_two, max_two = gen.swap(min_two, max_two)
-        defaults.set_multiply_one((min_one, max_one))
-        defaults.set_multiply_two((min_two, max_two))
-        await interaction.response.send_message(f'\*Range: ({defaults.get_multiply_one()[0]} to '
-                                                f'{defaults.get_multiply_one()[1]}) * '
-                                                f'({defaults.get_multiply_two()[0]} to '
-                                                f'{defaults.get_multiply_two()[1]})', ephemeral=False)
+        defaults.set_multiply(([min_one, max_one], [min_two, max_two]))
+        await interaction.response.send_message(f'\*Range: ({defaults.multiply[0][0]} to '
+                                                f'{defaults.multiply[0][1]}) * '
+                                                f'({defaults.multiply[1][0]} to '
+                                                f'{defaults.multiply[1][1]})', ephemeral=False)
         bot.current_channels.remove(interaction.channel)
 
 if __name__ == '__main__':

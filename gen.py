@@ -2,48 +2,23 @@
 import discord
 from discord.ext import commands
 import random
-import asyncio
-import time
 
 
 class Defaults:
 
     def __init__(self):
         self.operator_list = ['+', '*', '-', '/']
-        self.add_one = [2, 100]
-        self.add_two = [2, 100]
-        self.multiply_one = [2, 12]
-        self.multiply_two = [2, 100]
+        self.add = ([2, 100], [2, 100])
+        self.multiply = ([2, 12], [2, 100])
 
-    def set_add_one(self, add_one):
-        self.add_one = add_one
+    def set_add(self, add: tuple[list[int, int], list[int, int]]):
+        self.add = add
 
-    def set_add_two(self, add_two):
-        self.add_two = add_two
+    def set_multiply(self, multiply: tuple[list[int, int], list[int, int]]):
+        self.multiply = multiply
 
-    def set_multiply_one(self, multiply_one):
-        self.multiply_one = multiply_one
-
-    def set_multiply_two(self, multiply_two):
-        self.multiply_two = multiply_two
-
-    def set_operator_list(self, operator_list):
+    def set_operator_list(self, operator_list: list[str]):
         self.operator_list = operator_list
-
-    def get_add_one(self):
-        return self.add_one
-
-    def get_add_two(self):
-        return self.add_two
-
-    def get_multiply_one(self):
-        return self.multiply_one
-
-    def get_multiply_two(self):
-        return self.multiply_two
-
-    def get_operator_list(self):
-        return self.operator_list
 
 
 defaults = Defaults()
@@ -60,14 +35,14 @@ def generate() -> tuple[int, int, str]:
     first = 0
     second = 0
 
-    operator = random.choice(defaults.get_operator_list())
+    operator = random.choice(defaults.operator_list)
 
     if operator == '+' or operator == '-':
-        first = random.randint(*defaults.get_add_one())
-        second = random.randint(*defaults.get_add_two())
+        first = random.randint(*defaults.add[0])
+        second = random.randint(*defaults.add[1])
     elif operator == '*' or operator == '/':
-        first = random.randint(*defaults.get_multiply_one())
-        second = random.randint(*defaults.get_multiply_two())
+        first = random.randint(*defaults.multiply[0])
+        second = random.randint(*defaults.multiply[1])
 
     return int(first), int(second), operator
 
@@ -118,31 +93,27 @@ def mode_switch(mode: str):
 class OperatorSelect(discord.ui.Select):
 
     def __init__(self):
-        default_plus = '+' in defaults.get_operator_list()
-        default_minus = '-' in defaults.get_operator_list()
-        default_x = '*' in defaults.get_operator_list()
-        default_div = '/' in defaults.get_operator_list()
 
         options = [
             discord.SelectOption(
                 label="+",
                 description="Addition",
-                default=default_plus
+                default='+' in defaults.operator_list
             ),
             discord.SelectOption(
                 label="-",
                 description="Subtraction",
-                default=default_minus
+                default='-' in defaults.operator_list
             ),
             discord.SelectOption(
                 label="*",
                 description="Multiplication",
-                default=default_x
+                default='*' in defaults.operator_list
             ),
             discord.SelectOption(
                 label='/',
                 description="Division",
-                default=default_div
+                default='/' in defaults.operator_list
             )
         ]
         super().__init__(placeholder='+ - * /', min_values=1, max_values=4, options=options)
@@ -153,7 +124,7 @@ class OperatorSelect(discord.ui.Select):
         for operator in self.values:
             operator_string += operator + ' '
         operator_string = operator_string[:-1]
-        await interaction.response.send_message(f"You chose {operator_string}.", ephemeral=False)
+        await interaction.response.send_message(f'{interaction.user.name} chose {operator_string}', ephemeral=False)
 
 
 class OperatorView(discord.ui.View):
@@ -169,4 +140,3 @@ class GameFlags(commands.FlagConverter, delimiter=' ', prefix='-'):
     points: int = 5
     time: int = 120
     timeout: int = 15
-
